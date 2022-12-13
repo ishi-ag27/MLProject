@@ -1,0 +1,49 @@
+---
+title: "MLProject1"
+output: html_document
+---
+
+{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+## Load libraries and data
+
+{r library stuff}
+library(caret)
+library(randomForest)
+training = read.csv("~/pml-training.csv")
+testing = read.csv("~/pml-testing.csv")
+
+
+## Set up training, test, and validation sets
+
+We use a validation set because it's better to do so!
+It is like a way to double-check that our model is good.
+If the model fits differently for the validation versus test set, then we know we need to start over with a new model. 
+
+{r sets, echo=TRUE}
+training <- training[,colMeans(is.na(training)) < .9] #removing mostly na columns
+training <- training[,-c(1:7)] #removing the columns we don't need
+inBuild <- createDataPartition(y=training$classe, p=0.7,list=FALSE)
+validation <- training[-inBuild,]
+training <- training[inBuild,]
+
+
+## Try out a couple models
+
+{r modeling, echo=TRUE}
+mod4 <- train(classe~., data=training, method="rpart")
+predmod4 <- predict(mod4, validation)
+cm4 <- confusionMatrix(predmod4, factor(validation$classe))
+mod3 <- randomForest(classe ~., training, ntree=2,norm.votes=FALSE)
+predmod3 <- predict(mod3, validation)
+cm3 <- confusionMatrix(predmod3, factor(validation$classe))
+
+
+
+## Get the accuracy
+
+{r final stuff, echo = TRUE}
+accuracy(mod4, testing)
+accuracy(mod3, testing)
