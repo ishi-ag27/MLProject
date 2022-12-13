@@ -1,0 +1,71 @@
+{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+## Load libraries
+
+{r cars}
+library(lattice)
+library(ggplot2)
+library(caret)
+library(kernlab)
+library(rattle)
+library(corrplot)
+set.seed(1234)
+
+
+## Load data
+Using nearZeroVar saved my life in this project. It removes variables whose variance is near zero, which is great because it reduces the size of the data set while getting rid of things that wouldn't predict the outcomes anyway. 
+
+{r pressure, echo=FALSE}
+traincsv = read.csv("~/pml-training.csv")
+testcsv = read.csv("~/pml-testing.csv")
+traincsv <- traincsv[,colMeans(is.na(traincsv)) < .9] #removing mostly na columns
+traincsv <- traincsv[,-c(1:7)] #getting rid of columns we don't need
+betterset <- nearZeroVar(traincsv) ##This removes variables that barely change at all! 
+##This thing made it possible for me to run anything. Otherwise, the dataset was way too big for my computer.
+traincsv <- traincsv[,-betterset]
+inTrain <- createDataPartition(y=traincsv$classe, p=0.7, list=F)
+train <- traincsv[inTrain,]
+valid <- traincsv[-inTrain,]
+##Below is important because by setting number to 2, we are controlling how many iterations to go through... if we don't do this, it slows down the program like crazy. 
+control <- trainControl(method="cv", number=2, verboseIter=F)
+
+
+
+## Decision Tree
+I wanted to test two simple models, decision trees and random forests. We start with decision trees. 
+{r models, echo=TRUE}
+mod_trees <- train(classe~., data=train, method="rpart", trControl = control, tuneLength = 5)
+fancyRpartPlot(mod_trees$finalModel)
+pred_trees <- predict(mod_trees, valid)
+cmtrees <- confusionMatrix(pred_trees, factor(valid$classe))
+cmtrees
+
+
+## Random Forest
+Now we look at how well random foresting does.
+{r randomforest, echo=TRUE}
+mod_rf <- train(classe~., data=train, method="rf", trControl = control, tuneLength = 5)
+pred_rf <- predict(mod_rf, valid)
+cmrf <- confusionMatrix(pred_rf, factor(valid$classe))
+cmrf
+
+
+## Accuracy
+When we look at the accuracy from the confusion matrix results for the decision trees and the random forests, the random forests had better accuracy (0.9) than the decision trees (0.5), so let's make the final prediction using the random forests. 
+
+## Final prediction
+It looks like random foresting did better, so let's predict it on the test set. 
+{r prediciton, echo=TRUE}
+pred <- predict(mod_rf, testcsv)
+print(pred)
+
+
+
+## Appendix
+{r appendix, echo=TRUE}
+corrPlot <- cor(train[, -length(names(train))])
+corrplot(corrPlot, method="color")
+plot(mod_rf)
+plot(mod_trees)
